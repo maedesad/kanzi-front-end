@@ -17,7 +17,9 @@ Open the URL printed by Vite. Production: `npm run build`; preview: `npm run pre
 
 The default mock adapter includes 12 dictionary entries and a seven-word starter library. Try `present`, `هدیه`, `responsibility` or `کنجکاوی`. Changes persist in this browser using `kanzi.library.v1` in localStorage. This is a finite demo dictionary, not an online translation service. Different browsers have separate libraries until a backend is connected.
 
-Copy `.env.example` to `.env.local`, set `VITE_DATA_SOURCE=api` and set `VITE_API_BASE_URL` to use an existing backend. Rebuild after changing production environment values. Public frontend configuration must never contain secrets. The HTTP adapter uses cookie credentials; configure backend CORS and authentication accordingly.
+The HTTP adapter now follows the actual `farzin-az/kanzi-api` card endpoints. Copy `.env.example` to `.env.local` and set `VITE_DATA_SOURCE=api`. For local work, keep `VITE_API_BASE_URL=/api`; Vite forwards requests to `KANZI_API_PROXY_TARGET` (default `http://127.0.0.1:8000`). The backend must already be running. No backend is started by the frontend.
+
+The inspected backend supports listing, reading, generating and saving cards. It does not yet support translations, suggestions, deleting saved words or editing saved meanings. Unsupported controls remain visible but disabled in API mode. Demo mode continues to support the complete sample flow and is labeled as a demo in the footer. See `docs/api-contract.md` for setup, exact payloads and remaining gaps. Provider API keys belong only in the backend environment.
 
 ## Organization
 
@@ -29,7 +31,7 @@ Copy `.env.example` to `.env.local`, set `VITE_DATA_SOURCE=api` and set `VITE_AP
 - `src/app`: navigation and application orchestration.
 - `src/styles/theme.css`: palette, fonts, radii, button sizes and shared visual tokens.
 - `src/styles/app.css`: reusable component layout and responsive behavior.
-- `docs/api-contract.md`: proposed API contract to align with the future backend.
+- `docs/api-contract.md`: actual backend contract, connection setup and unsupported operations.
 
 ## Behavior
 
@@ -37,7 +39,7 @@ Search runs on explicit submission or Enter, in either language. Library search 
 
 New word cards start with all meanings selected. Removing a meaning immediately removes its segment from the draft. Only remaining meaning IDs are submitted when saving. For saved words, removing a meaning permanently updates that card. Removing its last meaning opens the word-deletion confirmation. Empty drafts cannot be added. Adding a duplicate word never restores previously removed meanings.
 
-The mock adapter stores complete saved cards. In API mode, the library response must contain only kept meanings. Every meaning includes its own pronunciation, definition, first-language translation and exactly three example sentences.
+The mock adapter stores complete saved cards with translations and three examples. The API adapter maps card-level pronunciation and one to three returned examples into the UI, preserving only selected meanings when saving a new card. It never fabricates translations or extra examples. Saved API cards cannot be edited or deleted until the backend supplies those endpoints.
 
 ## Checks
 

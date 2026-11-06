@@ -1,41 +1,74 @@
-# Proposed vocabulary API contract
+# Kanzi API integration
 
-This is an adapter contract for future integration, not an implemented backend. All paths are relative to `VITE_API_BASE_URL`. Adjust paths, mapping and authentication in `src/data/httpRepository.ts` once actual endpoints are supplied. React screens depend only on `VocabularyRepository`.
+The frontend adapter follows the current code in `farzin-az/kanzi-api` (`src/kanzi/api.py`, `models.py`, `db.py` and `llm.py`). No backend files were changed.
 
-## Models
+## Available endpoints
+
+Paths below include the backend's `/api` prefix.
+
+- `GET /api/cards` returns `string[]` containing saved word names.
+- `GET /api/cards/{word}` returns a saved card; missing cards return HTTP 404 with `{"detail":"Card not found"}`.
+- `POST /api/cards/{word}/generate` returns a generated card. It does not save it.
+- `POST /api/cards` accepts the complete card JSON and returns the saved card with HTTP 201. This endpoint inserts; it is not an update/upsert.
 
 ```ts
-interface Meaning {
-  id: string;
+interface ApiCard {
+  word: string;
   pronunciation: string;
-  definition: string;
-  translation: string;
-  examples: [string, string, string];
-}
-interface Word {
-  id: string;
-  text: string;
-  meanings: Meaning[];
-}
-interface SearchResults {
-  match: Word[];
-  suggested: Word[];
+  meanings: {
+    definition: string;
+    examples: string[];
+  }[];
 }
 ```
 
-IDs are opaque and stable. Different meanings of a word must have distinct IDs. A saved card must have at least one meaning. Do not change meaning IDs when reordering them.
+The backend model allows at most three examples; the prompt requests one to three. The UI displays only examples actually returned, without inventing missing sentences. Empty or malformed card payloads surface a readable error. The backend does not currently return translations or stable meaning IDs. The adapter creates deterministic UI-only IDs from meaning content and keeps them out of save requests.
 
-## Endpoints
+## Frontend behavior
 
-- `GET /library/words?q=` → `Word[]`. Empty `q` returns the whole saved library; otherwise search English text and Persian translations. Include only meanings the user kept.
-- `GET /words/:wordId` → `Word`. Returns a dictionary card. The UI prefers kept meanings from the library for saved words.
-- `GET /words/search?q=` → `SearchResults`. Return exact matches separately from relevant suggestions, without duplicate word IDs across groups. Search both languages and normalize Persian/Arabic keyboard variants.
-- `POST /library/words` with `{ "wordId": "present", "meaningIds": ["gift", "here"] }` → the saved `Word`. The operation should be idempotent for an already saved word and preserve its existing kept meanings. Reject an empty meaning list.
-- `DELETE /library/words/:wordId` → `204 No Content`. Remove the user's saved card, keeping the source dictionary entry intact.
-- `DELETE /library/words/:wordId/meanings/:meaningId` → updated saved `Word`. Remove permanently from that user's card. The UI deletes the whole card through the word endpoint when its last meaning is removed, after confirmation.
+Library reads fetch word names, deduplicate identical names and fetch details in batches of four. Library filtering happens on the client because there is no query endpoint. Discovery checks for an existing saved word ignoring case; otherwise an explicit Search submission calls the generation endpoint. Typing never generates cards. Generated drafts remain in memory so viewing and saving do not generate the word again.
 
-## Errors, auth and future scaling
+Saving posts only the selected meaning content. A preliminary library lookup avoids duplicate inserts in the normal single-client flow and preserves previously saved selections. Cross-client race prevention and unique word constraints belong to the backend.
 
-Return non-2xx status codes with `{ "message": "A useful user-facing explanation." }`. Reads support AbortSignal cancellation. Requests use `credentials: 'include'`; the backend owns session authentication, CORS, CSRF protection and authorization. No credentials are embedded in the frontend.
+## Current backend gaps
 
-The initial adapter expects a complete library and complete search result arrays. Pagination, server ordering, user settings, language selection and authentication screens can be added once their backend contracts are known. No backend, fake API server or authentication service has been created.
+- No first-language translations or Persian-to-English discovery. API-mode discovery explains this and rejects Persian queries without calling generation.
+- No Match/Suggested search endpoint. Generated or existing cards appear under Match; the adapter does not fabricate suggestions.
+- No DELETE word endpoint or update/delete meaning endpoint. The delete button and meaning checkbox remain visible but disabled for saved API cards. Draft meaning selection remains functional before saving.
+- No account authentication or per-user library ownership in the inspected code.
+- No CORS middleware, documented hosted URL or running service was provided.
+
+Demo mode retains the original bilingual sample behavior, including browser-local deletion. Those demo actions do not alter backend records.
+
+## Start an existing backend and connect locally
+
+In the backend checkout, install its declared dependencies and run its existing entry point:
+
+```sh
+uv sync
+uv run kanzi-api
+```
+
+Generation requires `OPENROUTER_API_KEY` in the backend environment or its `.env`. The inspected backend calls OpenRouter; an OpenAI key is not a drop-in replacement for that configuration. Do not place provider keys in frontend variables or browser code.
+
+In the frontend, copy `.env.example` to `.env.local`:
+
+```dotenv
+VITE_DATA_SOURCE=api
+VITE_API_BASE_URL=/api
+KANZI_API_PROXY_TARGET=http://127.0.0.1:8000
+```
+
+Restart the frontend development server. Vite forwards `/api` unchanged to the existing backend, avoiding cross-origin requests during local development. This is a development proxy, not an application backend.
+
+Production builds need either an actual API origin in `VITE_API_BASE_URL` with backend CORS configured, or a hosting reverse proxy for `/api`. The Vite development proxy is not included in static builds. Rebuild after changing frontend environment values.
+
+## Validation
+
+`npm test` checks the real response shape, selected-meaning saves, duplicate handling, FastAPI errors and cancellation using mocked HTTP responses. Browser checks in `tests/api` intercept the same four endpoint shapes in desktop and mobile contexts. They do not claim the backend is running or provider generation was verified.
+
+To run the API-mode browser suite, start a second frontend instance with `VITE_DATA_SOURCE=api` on port 5174, then:
+
+```sh
+npx playwright test --config playwright.api.config.ts
+```
