@@ -52,7 +52,7 @@ export function SearchPage(props: Props) {
       <p className="search-description">{bilingual ? <>Search for a word in your second language <strong>or enter its meaning in your first language</strong> to discover matching vocabulary.</> :
         'Search for an English word to create its vocabulary card. Translations and suggested words are not available yet.'}</p></header>}
     <SearchBar value={value} onChange={setValue} autoFocus placeholder={bilingual ? 'English or فارسی' : 'Type an English word…'} onSearch={next => {
-      setQuery(next); onQuery(next); setError('');
+      setQuery(next); onQuery(next); setError(''); result.retry();
     }} />
     {error && <ErrorNotice message={error} />}
     {result.error && <ErrorNotice message={result.error} onRetry={result.retry} />}

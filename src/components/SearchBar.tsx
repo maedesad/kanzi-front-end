@@ -18,7 +18,7 @@ export function SearchBar({ value, onChange, onSearch, autoFocus, busy, placehol
       <Icon name="search" />
       <input ref={input} autoFocus={autoFocus} aria-label="Search vocabulary" dir="auto"
         placeholder={placeholder} value={value} onChange={event => onChange(event.target.value)} />
-      {value && <IconButton icon="close" label="Clear search" onClick={() => {
+      {value && <IconButton type="button" icon="close" label="Clear search" onClick={() => {
         onChange(''); onSearch(''); input.current?.focus();
       }} />}
     </div>
