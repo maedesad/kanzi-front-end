@@ -1,34 +1,69 @@
-import type { VocabularyRepository, Word, SearchResults } from '../domain/vocabulary';
+import { matchesWord, normalizeQuery, type VocabularyRepository, type Word } from '../domain/vocabulary';
+import { apiRequest } from './api/client';
+import { fromApiCard, toApiCard } from './api/cardMapper';
 
-const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
-
+// Paths are relative to VITE_API_BASE_URL, which includes /api.
 export const endpoints = {
-  library: '/library/words',
-  word: (id: string) => `/words/${encodeURIComponent(id)}`,
-  search: '/words/search',
-  savedWord: (id: string) => `/library/words/${encodeURIComponent(id)}`,
-  meaning: (wordId: string, meaningId: string) =>
-    `/library/words/${encodeURIComponent(wordId)}/meanings/${encodeURIComponent(meaningId)}`,
+  cards: '/cards',
+  card: (word: string) => `/cards/${encodeURIComponent(word)}`,
+  generate: (word: string) => `/cards/${encodeURIComponent(word)}/generate`,
 };
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...init.headers },
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => null);
-    throw new Error(error?.message || `The request failed (${response.status}). Please try again.`);
+export function createHttpRepository(): VocabularyRepository {
+  const drafts = new Map<string, Word>();
+
+  async function savedNames(signal?: AbortSignal): Promise<string[]> {
+    const names = await apiRequest(endpoints.cards, { signal });
+    if (!Array.isArray(names) || names.some(name => typeof name !== 'string')) {
+      throw new Error('The API returned an invalid word list.');
+    }
+    return [...new Set(names as string[])];
   }
-  return response.status === 204 ? undefined as T : response.json() as Promise<T>;
+  async function readCard(id: string, signal?: AbortSignal): Promise<Word> {
+    return fromApiCard(await apiRequest(endpoints.card(id), { signal }));
+  }
+  return {
+    capabilities: { deleteWords: false, deleteMeanings: false, translations: false, suggestions: false },
+    async listWords(query = '', signal) {
+      const names = await savedNames(signal);
+      const cards: Word[] = [];
+      // The current list endpoint returns names only; limit concurrent detail requests.
+      for (let index = 0; index < names.length; index += 4) {
+        cards.push(...await Promise.all(names.slice(index, index + 4).map(name => readCard(name, signal))));
+      }
+      return cards.filter(card => matchesWord(card, query));
+    },
+    async getWord(id, signal) { return drafts.get(id) ?? readCard(id, signal); },
+    async searchWords(query, signal) {
+      const needle = normalizeQuery(query);
+      if (!needle) return { match: [], suggested: [] };
+      if (/[\u0600-\u06ff]/.test(query)) {
+        throw new Error('Persian search is not available yet. Please search with an English word.');
+      }
+      const existing = (await savedNames(signal)).find(name => normalizeQuery(name) === needle);
+      if (existing) return { match: [await readCard(existing, signal)], suggested: [] };
+      // Generation is explicitly submitted by the user; never call it while typing.
+      const cached = [...drafts.values()].find(word => normalizeQuery(word.text) === needle);
+      const word = cached ?? fromApiCard(await apiRequest(endpoints.generate(query.trim()), { method: 'POST', signal }));
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      drafts.set(word.id, word);
+      return { match: [word], suggested: [] };
+    },
+    async addWord(id, meaningIds) {
+      // POST is insert-only: check for an existing card to avoid restoring excluded meanings.
+      const existing = (await savedNames()).find(name => normalizeQuery(name) === normalizeQuery(id));
+      if (existing) { drafts.delete(id); return readCard(existing); }
+      const source = drafts.get(id);
+      if (!source) throw new Error('Search for this word again before adding it.');
+      const selected = { ...source, meanings: source.meanings.filter(meaning => meaningIds.includes(meaning.id)) };
+      if (!selected.meanings.length) throw new Error('Keep at least one meaning before adding this word.');
+      const saved = fromApiCard(await apiRequest(endpoints.cards, { method: 'POST', body: JSON.stringify(toApiCard(selected)) }));
+      drafts.delete(id);
+      return saved;
+    },
+    async deleteWord() { throw new Error('Deleting saved words is not supported by the current API.'); },
+    async deleteMeaning() { throw new Error('Editing saved meanings is not supported by the current API.'); },
+  };
 }
 
-export const httpRepository: VocabularyRepository = {
-  listWords: (query = '', signal) => request<Word[]>(`${endpoints.library}?q=${encodeURIComponent(query)}`, { signal }),
-  getWord: (id, signal) => request<Word>(endpoints.word(id), { signal }),
-  searchWords: (query, signal) => request<SearchResults>(`${endpoints.search}?q=${encodeURIComponent(query)}`, { signal }),
-  addWord: (wordId, meaningIds) => request<Word>(endpoints.library, {
-    method: 'POST', body: JSON.stringify({ wordId, meaningIds }),
-  }),
-  deleteWord: id => request<void>(endpoints.savedWord(id), { method: 'DELETE' }),
-  deleteMeaning: (wordId, meaningId) => request<Word>(endpoints.meaning(wordId, meaningId), { method: 'DELETE' }),
-};
+export const httpRepository = createHttpRepository();

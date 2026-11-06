@@ -20,6 +20,7 @@ interface Props {
 
 export function SearchPage(props: Props) {
   const { discover, initialQuery, onQuery, library, revision } = props;
+  const bilingual = repository.capabilities.translations;
   const [value, setValue] = useState(initialQuery);
   const [query, setQuery] = useState(initialQuery);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -48,15 +49,16 @@ export function SearchPage(props: Props) {
   return <section className="page search-page" aria-label={discover ? 'Add new vocabulary' : 'Search your library'}>
     <IconButton icon="back" label="Back to library" onClick={props.onBack} />
     {discover && <header className="page-header"><h1>Add New Vocabulary</h1>
-      <p className="search-description">Search for a word in your second language <strong>or enter its meaning in your first language</strong> to discover matching vocabulary.</p></header>}
-    <SearchBar value={value} onChange={setValue} autoFocus onSearch={next => {
+      <p className="search-description">{bilingual ? <>Search for a word in your second language <strong>or enter its meaning in your first language</strong> to discover matching vocabulary.</> :
+        'Search for an English word to create its vocabulary card. Translations and suggested words are not available yet.'}</p></header>}
+    <SearchBar value={value} onChange={setValue} autoFocus placeholder={bilingual ? 'English or فارسی' : 'Type an English word…'} onSearch={next => {
       setQuery(next); onQuery(next); setError('');
     }} />
     {error && <ErrorNotice message={error} />}
     {result.error && <ErrorNotice message={result.error} onRetry={result.retry} />}
     {query && result.loading ? <Loading label="Finding your words…" /> : !result.error && query ? <>
       <p className="caption" role="status">Found {total} {total === 1 ? 'word' : 'words'}</p>
-      {!total ? <EmptyState title="No matching words"><p>Try another English word or Persian meaning.</p></EmptyState> :
+      {!total ? <EmptyState title="No matching words"><p>{bilingual ? 'Try another English word or Persian meaning.' : 'Try another English word.'}</p></EmptyState> :
         <div className="search-sections">{(['match', 'suggested'] as const).map(group => {
           const words = result.data?.[group] ?? [];
           return words.length ? <section key={group} aria-label={group === 'match' ? 'Match' : 'Suggested'}>
@@ -64,7 +66,7 @@ export function SearchPage(props: Props) {
             <div className="word-grid">{words.map(renderWord)}</div></section> : null;
         })}</div>}
     </> : !query && <EmptyState title={discover ? 'Find your next word' : 'Find a familiar word'}>
-      <p>Search in English or فارسی.</p>{discover && <p className="mt-1">Try “present”, “هدیه” or “responsibility”.</p>}
+      <p>{bilingual ? 'Search in English or فارسی.' : 'Search in English.'}</p>{discover && <p className="mt-1">{bilingual ? 'Try “present”, “هدیه” or “responsibility”.' : 'Try “present” or “responsibility”.'}</p>}
     </EmptyState>}
   </section>;
 }

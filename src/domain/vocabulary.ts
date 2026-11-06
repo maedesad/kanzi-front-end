@@ -3,7 +3,7 @@ export interface Meaning {
   pronunciation: string;
   definition: string;
   translation: string;
-  examples: [string, string, string];
+  examples: string[];
 }
 
 export interface Word {
@@ -18,6 +18,7 @@ export interface SearchResults {
 }
 
 export interface VocabularyRepository {
+  capabilities: { deleteWords: boolean; deleteMeanings: boolean; translations: boolean; suggestions: boolean };
   listWords(query?: string, signal?: AbortSignal): Promise<Word[]>;
   getWord(id: string, signal?: AbortSignal): Promise<Word>;
   searchWords(query: string, signal?: AbortSignal): Promise<SearchResults>;

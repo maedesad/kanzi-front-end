@@ -28,6 +28,7 @@ async function delay(signal?: AbortSignal) {
 }
 
 export const mockRepository: VocabularyRepository = {
+  capabilities: { deleteWords: true, deleteMeanings: true, translations: true, suggestions: true },
   async listWords(query = '', signal) {
     await delay(signal);
     return readLibrary().filter(word => matchesWord(word, query));

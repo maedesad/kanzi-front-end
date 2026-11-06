@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Word } from '../domain/vocabulary';
-import { repository } from '../data/repository';
+import { isDemo, repository } from '../data/repository';
 import { useLibrary } from '../hooks/useLibrary';
 import { useNavigation, type Route } from './navigation';
 import { LibraryPage } from '../features/library/LibraryPage';
@@ -74,6 +74,6 @@ export function App() {
           onBack={() => navigate(returnRoute.current)} onAdd={addWord} onChanged={library.refresh} onNotify={setToast} />)}
     </main>
     {toast && <div className="toast" role="status">{toast}</div>}
-    <footer className="app-footer">Your words, growing with you.</footer>
+    <footer className="app-footer">{isDemo ? 'Demo preview · Sample vocabulary stored in this browser.' : 'Your words, growing with you.'}</footer>
   </div>;
 }

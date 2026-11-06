@@ -27,6 +27,7 @@ export function WordPage({ id, savedWord, onBack, onAdd, onChanged, onNotify }: 
 
   async function removeMeaning() {
     if (!word || !active || busy) return;
+    if (savedWord && !repository.capabilities.deleteMeanings) return;
     if (savedWord && word.meanings.length === 1) { setConfirmDelete(true); return; }
     setError(''); setBusy(true);
     try {
@@ -57,9 +58,13 @@ export function WordPage({ id, savedWord, onBack, onAdd, onChanged, onNotify }: 
   return <section className="page word-page" aria-label="Word card">
     <div className="flex items-center justify-between">
       <IconButton icon="back" label="Back" onClick={onBack} />
-      {savedWord && <IconButton icon="trash" label="Delete word" disabled={busy} onClick={() => setConfirmDelete(true)} />}
+      {savedWord && <IconButton icon="trash" label="Delete word" title={!repository.capabilities.deleteWords ? 'Deleting saved words is not available yet' : 'Delete word'}
+        disabled={busy || !repository.capabilities.deleteWords} onClick={() => setConfirmDelete(true)} />}
     </div>
     {error && <ErrorNotice message={error} />}
+    {savedWord && !repository.capabilities.deleteMeanings && <p className="text-sm text-muted leading-6" role="note">
+      Saved cards are read-only for now. Editing meanings and deleting words are not available yet.
+    </p>}
     {result.loading && !word ? <Loading label="Opening word card…" /> : !word ?
       <ErrorNotice message={result.error ?? 'Word not found.'} onRetry={result.retry} /> : <>
       {word.meanings.length > 0 && <div className="meaning-controls">
@@ -79,7 +84,7 @@ export function WordPage({ id, savedWord, onBack, onAdd, onChanged, onNotify }: 
         </div>
         <label className={`keep-meaning ${busy ? 'opacity-60' : ''}`}>
           <span>Keep this meaning to the word card.</span>
-          <input aria-label="Keep this meaning to the word card" type="checkbox" checked disabled={busy}
+          <input aria-label="Keep this meaning to the word card" type="checkbox" checked disabled={busy || (!!savedWord && !repository.capabilities.deleteMeanings)}
             onChange={() => void removeMeaning()} /><span className="checkbox-mark"><Icon name="check" /></span>
         </label>
       </div>}

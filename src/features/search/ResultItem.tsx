@@ -16,7 +16,7 @@ export function ResultItem({ word, status, busy, onAdd, onOpen }: Props) {
         {status === 'new' ? 'New' : status === 'just-added' ? 'Just added' : 'Already Added'}
       </span>
       <h3 className="word-title">{word.text}</h3>
-      <p className="translation-small" lang="fa" dir="rtl">{word.meanings[0]?.translation}</p>
+      {word.meanings[0]?.translation && <p className="translation-small" lang="fa" dir="rtl">{word.meanings[0].translation}</p>}
     </div>
     <div className="flex shrink-0 flex-col items-stretch gap-2">
       {status === 'new' && <Button variant="add" size="small" disabled={busy} onClick={onAdd}>
