@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+/* All shared visual decisions live here. */
+@theme {
+  --font-sans: 'Poppins', sans-serif;
+  --font-reading: 'Inter', sans-serif;
+  --font-persian: 'Vazirmatn', sans-serif;
+  --color-canvas: #e0e3e5;
+  --color-surface: #f1f7f9;
+  --color-subtle: #eaeef0;
+  --color-primary: #806c78;
+  --color-primary-hover: #62535c;
+  --color-ink: #4c4048;
+  --color-muted: #6e5e68;
+  --color-heading: #62535c;
+  --color-word: #763f60;
+  --color-new: #f1fae1;
+  --color-new-badge: #d3e5b3;
+  --color-added-badge: #dbebf0;
+  --color-success: #70c29f;
+  --color-add: #9fbb6b;
+  --color-add-ink: #35451c;
+  --color-danger: #934258;
+  --color-focus: #bc90ad;
+  --radius-card: 28px;
+  --radius-control: 24px;
+  --radius-button: 28px;
+}
+
+:root {
+  --button-height: 56px;
+  --button-height-medium: 44px;
+  --button-height-small: 32px;
+  --button-font-size: 16px;
+  --button-font-weight: 500;
+  --icon-button-size: 48px;
+  --title-size: 28px;
+  --body-size: 14px;
+  --page-gutter: 24px;
+  --content-width: 920px;
+  --transition-speed: 160ms;
+}
